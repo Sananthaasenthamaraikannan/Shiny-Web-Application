@@ -4,7 +4,7 @@ library(tidyverse)
 library(DT)
 library(survival)
 library(survminer)
-dig_raw <- read.csv("D:/R Computing/Assignment - 5/DIG-1.csv", stringsAsFactors = FALSE)
+dig_raw <- read.csv("DIG-1.csv", stringsAsFactors = FALSE)
 dig <- dig_raw %>%
   mutate(TRTMT=factor(TRTMT,levels=c(0, 1),labels=c("Placebo", "Digoxin")),
          SEX=factor(SEX,levels=c(1, 2),labels=c("Male", "Female")),
