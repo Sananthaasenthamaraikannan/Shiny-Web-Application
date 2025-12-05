@@ -75,8 +75,6 @@ ui <- dashboardPage(skin = "blue",
               br(), br(),
               DTOutput("tbl_data"))
           )))))
-server <- function(input, output, session) {}
-shinyApp(ui, server)
 
 server <- function(input, output, session) {
   
@@ -163,7 +161,7 @@ server <- function(input, output, session) {
     if (nrow(df) == 0) return(NULL)
     
     sum_tbl <- df %>%
-      group_by(TRTMT) %>%
+      group_by(TRTMT) %>%               
       summarise(
         n        = n(),
         mean_age = mean(AGE, na.rm = TRUE),
@@ -243,28 +241,6 @@ server <- function(input, output, session) {
       )
   })
   
- 
-  
-  output$plot_surv <- renderPlot({
-    df <- filtered_data()
-    
-    if (nrow(df) == 0 || !("DEATHDAY" %in% names(df))) {
-      return(NULL)
-    }
-    
-    df2 <- df %>%
-      filter(!is.na(DEATHDAY), !is.na(death_event), DEATHDAY >= 0)
-    
-    if (nrow(df2) <= 5) {
-      return(NULL)
-    }
-    
-    surv_obj <- Surv(time = df2$DEATHDAY, event = df2$death_event)
-    fit <- survfit(surv_obj ~ TRTMT, data = df2)
-    
-    ggsurvplot(fit, data = df2, risk.table = FALSE)
-  })
-  
   output$tbl_data <- renderDT({
     filtered_data()
   }, options = list(pageLength = 20, scrollX = TRUE))
@@ -278,6 +254,4 @@ server <- function(input, output, session) {
     }
   )
 }
-
-
 shinyApp(ui, server)
