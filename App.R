@@ -87,3 +87,226 @@ ui <- dashboardPage(skin = "blue",
           )))))
 server <- function(input, output, session) {}
 shinyApp(ui, server)
+
+server <- function(input, output, session) {
+  
+  
+  filtered_data <- reactive({
+    df <- dig
+    
+    df <- df[df$TRTMT %in% input$f_trt, ]
+    
+    
+    df <- df[df$SEX %in% input$f_sex, ]
+    
+    df <- df[!is.na(df$AGE) &
+               df$AGE >= input$f_age[1] &
+               df$AGE <= input$f_age[2], ]
+    
+    
+    df <- df[!is.na(df$EJF_PER) &
+               df$EJF_PER >= input$f_ef[1] &
+               df$EJF_PER <= input$f_ef[2], ]
+    
+    df
+  })
+  
+  
+  output$vb_n <- renderValueBox({
+    df <- filtered_data()
+    n <- nrow(df)
+    
+    valueBox(
+      value = n,
+      subtitle = "Patients in filtered subset",
+      color = "light-blue"
+    )
+  })
+  
+  output$vb_trt_prop <- renderValueBox({
+    df <- filtered_data()
+    
+    if (nrow(df) == 0) {
+      valueBox(
+        value = "0%",
+        subtitle = "On digoxin (among filtered)",
+        color = "green"
+      )
+    } else {
+      trt_tab <- table(df$TRTMT)
+      if ("Digoxin" %in% names(trt_tab)) {
+        prop_dig <- 100 * trt_tab[["Digoxin"]] / sum(trt_tab)
+      } else {
+        prop_dig <- 0
+      }
+      
+      valueBox(
+        value = sprintf("%.1f%%", prop_dig),
+        subtitle = "On digoxin (among filtered)",
+        color = "green"
+      )
+    }
+  })
+  
+  output$vb_death_rate <- renderValueBox({
+    df <- filtered_data()
+    
+    if (nrow(df) == 0) {
+      valueBox(
+        value = "NA",
+        subtitle = "Death rate (follow-up)",
+        color = "red"
+      )
+    } else {
+      death_rate <- mean(df$DEATH == "Dead", na.rm = TRUE) * 100
+      
+      valueBox(
+        value = sprintf("%.1f%%", death_rate),
+        subtitle = "Death rate (follow-up)",
+        color = "red"
+      )
+    }
+  })
+  
+  output$tbl_overview <- renderDT({
+    df <- filtered_data()
+    if (nrow(df) == 0) return(NULL)
+    
+    sum_tbl <- df %>%
+      group_by(TRTMT) %>%
+      summarise(
+        n        = n(),
+        mean_age = mean(AGE, na.rm = TRUE),
+        sd_age   = sd(AGE, na.rm = TRUE),
+        mean_ef  = mean(EJF_PER, na.rm = TRUE),
+        sd_ef    = sd(EJF_PER, na.rm = TRUE),
+        mean_bmi = mean(BMI, na.rm = TRUE),
+        sd_bmi   = sd(BMI, na.rm = TRUE)
+      )
+    
+    datatable(sum_tbl, options = list(pageLength = 5, scrollX = TRUE))
+  })
+  
+  output$plot_funclass <- renderPlot({
+    df <- filtered_data()
+    
+    if (nrow(df) == 0 || !("FUNCTCLS" %in% names(df))) {
+      return(NULL)
+    }
+    
+    df %>%
+      mutate(FUNCTCLS = factor(FUNCTCLS)) %>%
+      filter(!is.na(FUNCTCLS)) %>%
+      group_by(TRTMT, FUNCTCLS) %>%
+      summarise(n = n()) %>%
+      group_by(TRTMT) %>%
+      mutate(prop = n / sum(n)) %>%
+      ggplot(aes(x = TRTMT, y = prop, fill = FUNCTCLS)) +
+      geom_col(position = "fill") +
+      scale_y_continuous(labels = scales::percent) +
+      labs(
+        x = "Treatment",
+        y = "Proportion",
+        fill = "NYHA class"
+      )
+  })
+  
+ 
+  
+  output$plot_age_ef <- renderPlot({
+    df <- filtered_data()
+    if (nrow(df) == 0) return(NULL)
+    
+    if (input$cp_colour == "TRTMT") {
+      p <- ggplot(df, aes(x = AGE, y = EJF_PER, colour = TRTMT))
+      colour_lab <- "Treatment"
+    } else {
+      p <- ggplot(df, aes(x = AGE, y = EJF_PER, colour = DEATH))
+      colour_lab <- "Death status"
+    }
+    
+    p <- p +
+      geom_point(alpha = 0.7) +
+      labs(
+        x = "Age at randomisation (years)",
+        y = "Ejection fraction (%)",
+        colour = colour_lab
+      )
+    
+    if (input$cp_smooth) {
+      p <- p + geom_smooth(se = FALSE, method = "loess")
+    }
+    
+    p
+  })
+  
+  output$plot_ef_hist <- renderPlot({
+    df <- filtered_data()
+    if (nrow(df) == 0) return(NULL)
+    
+    ggplot(df, aes(x = EJF_PER, fill = TRTMT)) +
+      geom_histogram(position = "identity", alpha = 0.6, bins = 30) +
+      labs(
+        x = "Ejection fraction (%)",
+        y = "Count",
+        fill = "Treatment"
+      )
+  })
+  
+ 
+  
+  output$plot_surv <- renderPlot({
+    df <- filtered_data()
+    
+    if (nrow(df) == 0 || !("DEATHDAY" %in% names(df))) {
+      return(NULL)
+    }
+    
+    df2 <- df %>%
+      filter(!is.na(DEATHDAY), !is.na(death_event), DEATHDAY >= 0)
+    
+    if (nrow(df2) <= 5) {
+      return(NULL)
+    }
+    
+    surv_obj <- Surv(time = df2$DEATHDAY, event = df2$death_event)
+    fit <- survfit(surv_obj ~ TRTMT, data = df2)
+    
+    ggsurvplot(fit, data = df2, risk.table = FALSE)
+  })
+  
+  output$txt_surv_summary <- renderPrint({
+    df <- filtered_data()
+    
+    if (nrow(df) == 0 || !("DEATHDAY" %in% names(df))) {
+      cat("No data available for survival analysis.")
+    } else {
+      df2 <- df %>%
+        filter(!is.na(DEATHDAY), !is.na(death_event), DEATHDAY >= 0)
+      
+      if (nrow(df2) <= 5) {
+        cat("Not enough data for survival analysis.")
+      } else {
+        surv_obj <- Surv(time = df2$DEATHDAY, event = df2$death_event)
+        fit <- survfit(surv_obj ~ TRTMT, data = df2)
+        print(summary(fit))
+      }
+    }
+  })
+  
+  output$tbl_data <- renderDT({
+    filtered_data()
+  }, options = list(pageLength = 20, scrollX = TRUE))
+  
+  output$download_data <- downloadHandler(
+    filename = function() {
+      paste0("DIG_filtered_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(filtered_data(), file, row.names = FALSE)
+    }
+  )
+}
+
+
+shinyApp(ui, server)
