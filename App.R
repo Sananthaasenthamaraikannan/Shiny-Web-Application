@@ -19,7 +19,6 @@ ui <- dashboardPage(skin = "blue",
     id = "tabs",
     menuItem("Overview",tabName="overview"),
     menuItem("Clinical Profile",tabName="clinical"),
-    menuItem("Survival Analysis",tabName="survival"),
     menuItem("Data",tabName="data")),
     hr(),
     h4("Filters"),
@@ -67,15 +66,6 @@ ui <- dashboardPage(skin = "blue",
           box(width=6, title="Distribution of Ejection Fraction",
               status="warning", solidHeader=TRUE,
               plotOutput("plot_ef_hist")))),
-      tabItem(
-        tabName="survival",
-        fluidRow(
-          box(width=8, title="Curves: Time to death",
-              status="success", solidHeader=TRUE,
-              plotOutput("plot_surv")),
-          box(width=4, title="Survival summary",
-              status="success", solidHeader=TRUE,
-              verbatimTextOutput("txt_surv_summary")))),
       tabItem(
         tabName="data",
         fluidRow(
@@ -273,25 +263,6 @@ server <- function(input, output, session) {
     fit <- survfit(surv_obj ~ TRTMT, data = df2)
     
     ggsurvplot(fit, data = df2, risk.table = FALSE)
-  })
-  
-  output$txt_surv_summary <- renderPrint({
-    df <- filtered_data()
-    
-    if (nrow(df) == 0 || !("DEATHDAY" %in% names(df))) {
-      cat("No data available for survival analysis.")
-    } else {
-      df2 <- df %>%
-        filter(!is.na(DEATHDAY), !is.na(death_event), DEATHDAY >= 0)
-      
-      if (nrow(df2) <= 5) {
-        cat("Not enough data for survival analysis.")
-      } else {
-        surv_obj <- Surv(time = df2$DEATHDAY, event = df2$death_event)
-        fit <- survfit(surv_obj ~ TRTMT, data = df2)
-        print(summary(fit))
-      }
-    }
   })
   
   output$tbl_data <- renderDT({

@@ -1,0 +1,12 @@
+name: Shiny-Web-Application
+title: Shiny-Web-Application
+username: 81639h-sananthaa
+account: 81639h-sananthaa
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16250317
+bundleId: 11280865
+url: https://81639h-sananthaa.shinyapps.io/Shiny-Web-Application/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
