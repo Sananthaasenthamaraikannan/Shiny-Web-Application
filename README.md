@@ -5,7 +5,7 @@ An application that will help users understand key aspects of the data and explo
 
 Overview
 
-This Shiny dashboard is a beginner-friendly exploratory app built to analyse data from the Digitalis Investigation Group (DIG) heart failure trial.
+This Shiny dashboard is a friendly exploratory app built to analyse data from the Digitalis Investigation Group (DIG) heart failure trial.
 To Explore baseline characteristics of patients,Visualise clinical profiles, such as age and ejection fraction,Examine survival outcomes using Kaplan–Meier curves.
 
 Data
